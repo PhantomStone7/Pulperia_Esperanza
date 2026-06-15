@@ -9,6 +9,54 @@ const fmtDate = (d) => {
 };
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+function exportToExcel(rows, filename, sheetName) {
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const stamp = todayStr();
+  XLSX.writeFile(wb, `${filename}-${stamp}.xlsx`);
+}
+
+function exportInventario(productos) {
+  const rows = productos.map((p) => ({
+    Producto: p.nombre,
+    Categoria: p.categoria,
+    'Costo unitario': Number(p.costo) || 0,
+    'Precio de venta': Number(p.precio) || 0,
+    'Ganancia por unidad': (Number(p.precio) || 0) - (Number(p.costo) || 0),
+    Cantidad: Number(p.cantidad) || 0,
+    'Valor en stock': ((Number(p.costo) || 0) * (Number(p.cantidad) || 0)),
+    'Ultima venta': p.ultimaVenta || '',
+  }));
+  exportToExcel(rows, 'inventario', 'Inventario');
+}
+
+function exportFiados(fiados) {
+  const rows = fiados.map((f) => ({
+    Cliente: f.cliente,
+    Fecha: f.fecha,
+    Detalle: f.detalle || '',
+    Monto: Number(f.monto) || 0,
+    Pagado: Number(f.pagado) || 0,
+    Saldo: (Number(f.monto) || 0) - (Number(f.pagado) || 0),
+    'Limite de fiado': Number(f.limite) || 0,
+  }));
+  exportToExcel(rows, 'fiados', 'Fiados');
+}
+
+function exportVentas(ventas) {
+  const rows = [...ventas].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((v) => ({
+    Fecha: v.fecha,
+    'Fondo inicial': Number(v.fondo) || 0,
+    'Efectivo final': Number(v.efectivoFinal) || 0,
+    Gastos: Number(v.gastos) || 0,
+    'Fiados cobrados': Number(v.fiadosCobrados) || 0,
+    'Total vendido': Number(v.totalVendido) || 0,
+    Nota: v.nota || '',
+  }));
+  exportToExcel(rows, 'ventas', 'Ventas');
+}
+
 const CATS = ['Bebidas', 'Snacks', 'Abarrotes', 'Limpieza', 'Otros'];
 const ROW_ID = 'main';
 const EMPTY_DATA = { productos: [], fiados: [], ventas: [], clientes: [] };
@@ -397,7 +445,17 @@ function Ventas({ data, setData, showToast }) {
       </section>
 
       <section style={styles.card}>
-        <p style={styles.cardTitle}>Resumen reciente</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <p style={styles.cardTitle}>Resumen reciente</p>
+          <button
+            style={{ ...styles.linkBtn, marginTop: 0 }}
+            onClick={() => exportVentas(data.ventas)}
+            disabled={data.ventas.length === 0}
+          >
+            <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} aria-hidden="true" />
+            Exportar a Excel
+          </button>
+        </div>
         <div style={styles.statsGrid}>
           <div style={styles.statCard}>
             <p style={styles.statLabel}>Últimos {last7.length || 0} días</p>
@@ -522,6 +580,10 @@ function Inventario({ data, setData, showToast }) {
         <button style={{ ...styles.primaryBtn, marginTop: 12 }} onClick={startNew}>
           <i className="ti ti-plus" style={{ fontSize: 16, marginRight: 6 }} aria-hidden="true" />
           Agregar producto
+        </button>
+        <button style={styles.secondaryBtn} onClick={() => exportInventario(data.productos)} disabled={data.productos.length === 0}>
+          <i className="ti ti-file-spreadsheet" style={{ fontSize: 14, marginRight: 6 }} aria-hidden="true" />
+          Exportar a Excel
         </button>
       </section>
 
@@ -715,10 +777,20 @@ function Fiados({ data, setData, showToast }) {
       <section style={styles.heroCard}>
         <p style={styles.heroLabel}>Total pendiente de cobrar</p>
         <p style={styles.heroValue}>{fmtMoney(totalPendiente)}</p>
-        <button style={styles.heroBtn} onClick={startNew}>
-          <i className="ti ti-plus" style={{ fontSize: 16, marginRight: 6 }} aria-hidden="true" />
-          Nuevo fiado
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button style={styles.heroBtn} onClick={startNew}>
+            <i className="ti ti-plus" style={{ fontSize: 16, marginRight: 6 }} aria-hidden="true" />
+            Nuevo fiado
+          </button>
+          <button
+            style={{ ...styles.heroBtn, background: 'transparent', color: 'var(--color-text-success)', border: '0.5px solid var(--color-text-success)' }}
+            onClick={() => exportFiados(data.fiados)}
+            disabled={data.fiados.length === 0}
+          >
+            <i className="ti ti-file-spreadsheet" style={{ fontSize: 14, marginRight: 6 }} aria-hidden="true" />
+            Exportar a Excel
+          </button>
+        </div>
       </section>
 
       {porCliente.length === 0 && (
